@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Tickers Management</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Name</th>
+                <th>Sector</th>
+                <th>Active</th>
+                <th>Nazwa1</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ticker in tickers %}
+            <tr>
+                <td>{{ ticker['ticker'] }}</td>
+                <td>{{ ticker['name'] }}</td>
+                <td>{{ ticker['sector'] }}</td>
+                <td>{{ 'Yes' if ticker['is_active'] else 'No' }}</td>
+                <td>{{ ticker['nazwa1'] }}</td>
+                <td><a href="{{ url_for('edit_ticker', ticker_id=ticker['id']) }}" class="btn btn-primary btn-sm">Edit</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

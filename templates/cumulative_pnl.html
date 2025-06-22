@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cumulative PnL Chart</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lightweight-charts@4.0.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+    <h1 class="mb-4">Cumulative PnL Chart</h1>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary mb-3">Back to Trades</a>
+
+    <div id="chart" style="height: 500px;"></div>
+</div>
+
+<script>
+    const pnlData = {{ pnl_data | tojson }};
+
+    const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+        width: 900,
+        height: 500,
+        layout: { backgroundColor: '#ffffff', textColor: '#000' },
+        grid: { vertLines: { color: '#eee' }, horzLines: { color: '#eee' } },
+    });
+
+    const pnlSeries = chart.addLineSeries({ color: 'green' });
+    pnlSeries.setData(pnlData);
+</script>
+
+</body>
+</html>

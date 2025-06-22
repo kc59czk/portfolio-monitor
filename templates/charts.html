@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Portfolio Charts</h2>
+
+    <div class="row">
+        <div class="col-md-8">
+            <h4>Performance Chart</h4>
+            <canvas id="performanceChart"></canvas>
+        </div>
+
+        <div class="col-md-4">
+            <h4>Portfolio Allocation</h4>
+            <canvas id="allocationChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Performance Chart
+    const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+    const performanceChart = new Chart(performanceCtx, {
+        type: 'line',
+        data: {
+            labels: {{ dates|tojson }},
+            datasets: [{
+                label: 'Portfolio Value',
+                data: {{ portfolio_values|tojson }},
+                borderColor: 'rgb(75, 192, 192)',
+                fill: false,
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Date' } },
+                y: { title: { display: true, text: 'Portfolio Value' } }
+            }
+        }
+    });
+
+    // Portfolio Allocation Chart
+    const allocationCtx = document.getElementById('allocationChart').getContext('2d');
+    const allocationChart = new Chart(allocationCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ labels|tojson }},
+            datasets: [{
+                data: {{ weights|tojson }},
+                backgroundColor: [
+                    'rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 206, 86)',
+                    'rgb(75, 192, 192)', 'rgb(153, 102, 255)', 'rgb(255, 159, 64)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true
+        }
+    });
+</script>
+{% endblock %}

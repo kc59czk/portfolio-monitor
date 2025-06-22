@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Portfolio Overview</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Name</th>
+                <th>Quantity</th>
+                <th>Average Cost</th>
+                <th>Current Price</th>
+                <th>Unrealized PnL</th>
+                <th>Market Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set total_value = 0 %}
+            {% set total_pnl = 0 %}
+            {% for position in portfolio %}
+                {% set total_value = total_value + position['market_value'] %}
+                {% set total_pnl = total_pnl + position['unrealized_pnl'] %}
+                <tr>
+                    <td>{{ position['ticker'] }}</td>
+                    <td>{{ position['name'] }}</td>
+                    <td>{{ position['total_quantity'] }}</td>
+                    <td>{{ "%.2f"|format(position['avg_cost']) }}</td>
+                    <td>{{ "%.2f"|format(position['current_price']) }}</td>
+                    <td class="{% if position['unrealized_pnl'] >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ "%.2f"|format(position['unrealized_pnl']) }}
+                    </td>
+                    <td>{{ "%.2f"|format(position['market_value']) }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h4>Total Portfolio Value: {{ "%.2f"|format(total_value) }}</h4>
+    <h4>Total Unrealized PnL: 
+        <span class="{% if total_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ "%.2f"|format(total_pnl) }}
+        </span>
+    </h4>
+</div>
+{% endblock %}

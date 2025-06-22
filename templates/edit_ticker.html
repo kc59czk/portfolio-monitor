@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Edit Ticker: {{ ticker['ticker'] }}</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">Ticker</label>
+            <input type="text" class="form-control" name="ticker" value="{{ ticker['ticker'] }}" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-control" name="name" value="{{ ticker['name'] }}">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Sector</label>
+            <input type="text" class="form-control" name="sector" value="{{ ticker['sector'] }}">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Nazwa1</label>
+            <input type="text" class="form-control" name="nazwa1" value="{{ ticker['nazwa1'] }}">
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="is_active" id="is_active" {% if ticker['is_active'] %}checked{% endif %}>
+            <label class="form-check-label" for="is_active">Active</label>
+        </div>
+        <button type="submit" class="btn btn-success">Save</button>
+        <a href="{{ url_for('tickers') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
