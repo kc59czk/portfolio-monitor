@@ -289,8 +289,15 @@ def portfolio():
         ORDER BY pd.ticker
     ''', (user_id,)).fetchall()
 
+    # Debug: print portfolio data to console
+  #  print('PORTFOLIO DEBUG:', [dict(row) for row in portfolio])
+
+    # Calculate totals in Python
+    total_value = sum(row['market_value'] for row in portfolio)
+    total_pnl = sum(row['unrealized_pnl'] for row in portfolio)
+
     conn.close()
-    return render_template('portfolio.html', portfolio=portfolio)
+    return render_template('portfolio.html', portfolio=portfolio, total_value=total_value, total_pnl=total_pnl)
 
 @app.route('/cumulative_pnl')
 def cumulative_pnl():

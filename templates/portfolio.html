@@ -15,11 +15,7 @@
             </tr>
         </thead>
         <tbody>
-            {% set total_value = 0 %}
-            {% set total_pnl = 0 %}
             {% for position in portfolio %}
-                {% set total_value = total_value + position['market_value'] %}
-                {% set total_pnl = total_pnl + position['unrealized_pnl'] %}
                 <tr>
                     <td>{{ position['ticker'] }}</td>
                     <td>{{ position['name'] }}</td>
