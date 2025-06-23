@@ -8,27 +8,44 @@ DATABASE = 'trades.db'
 
 @app.before_request
 def load_current_user():
-    g.current_user = request.headers.get('X-Forwarded-User', 'Guest')
-    # This is a placeholder for user authentication, replace with actual logic if needed
-    # For example, you can set g.current_user based on session or token
-    
+    g.current_user = request.headers.get('X-User', 'Guest')
+    g.user_email = request.headers.get('X-Email', None)
+    if g.user_email is None:
+        return "Unauthorized", 401
+    print(f"Current user set to: {g.current_user} and user_email:  {g.user_email}")
+    conn = get_db_connection()
+    user = conn.execute('SELECT id FROM users WHERE email = ?', (g.user_email,)).fetchone()
 
+    if not user:
+        conn.execute('INSERT INTO users (username,email) VALUES (?,?)', (g.current_user, g.user_email,))
+        conn.commit()
+        user = conn.execute('SELECT id FROM users WHERE email = ?', (g.user_email,)).fetchone()
+
+    user_id = user['id']
+    return None
+
+@app.after_request
+def after_request(response):
+    # Set headers to prevent caching
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    print("After request headers set to prevent caching")
+    return response
 
 @app.context_processor
 def inject_user():
     from datetime import datetime
-    return dict(current_user=g.get('current_user', 'Guest'), current_year=datetime.now().year)
-
-
+    return dict(current_user=g.get('current_user', 'Guest'), user_email=g.get('user_email', None), current_year=datetime.now().year)    
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
-
 @app.route('/', methods=['GET'])
 def index():
+    user_id = g.user_email
     conn = get_db_connection()
 
     # Read filters
@@ -41,9 +58,9 @@ def index():
         SELECT trades.*, tickers.ticker
         FROM trades
         JOIN tickers ON trades.ticker_id = tickers.id
-        WHERE 1=1
+        WHERE trades.user_id = ?
     '''
-    params = []
+    params = [user_id]
 
     if ticker:
         query += ' AND tickers.ticker = ?'
@@ -72,11 +89,13 @@ def index():
 
     return render_template('index.html', trades=trades, tickers=tickers)
 
+@app.route('/logout')
+def logout():
+    return redirect("http://wl.htopowy.pl/oauth2/sign_out")
 
 @app.route('/trade', methods=['GET', 'POST'])
 def trade():
-    user_id = 1  # TODO: Replace this with session-based user ID later
-
+    user_id = g.user_email
     conn = get_db_connection()
     tickers = conn.execute('SELECT * FROM tickers WHERE is_active = 1 ORDER BY ticker').fetchall()
 
@@ -98,16 +117,16 @@ def trade():
     conn.close()
     return render_template('trade.html', tickers=tickers)
 
-
 @app.route('/trade/<int:trade_id>/edit', methods=('GET', 'POST'))
 def edit_trade(trade_id):
+    user_id = g.user_email
     conn = get_db_connection()
     trade = conn.execute('''
         SELECT trades.*, tickers.ticker 
         FROM trades 
         JOIN tickers ON trades.ticker_id = tickers.id 
-        WHERE trades.id = ?
-    ''', (trade_id,)).fetchone()
+        WHERE trades.id = ? AND trades.user_id = ?
+    ''', (trade_id, user_id)).fetchone()
 
     if trade is None:
         flash('Trade not found!')
@@ -124,8 +143,8 @@ def edit_trade(trade_id):
         conn.execute('''
             UPDATE trades
             SET trade_date = ?, action = ?, quantity = ?, price = ?, fees = ?, notes = ?
-            WHERE id = ?
-        ''', (trade_date, action, quantity, price, fees, note, trade_id))
+            WHERE id = ? AND user_id = ?
+        ''', (trade_date, action, quantity, price, fees, note, trade_id, user_id))
         conn.commit()
         conn.close()
         flash('Trade updated successfully!')
@@ -134,11 +153,11 @@ def edit_trade(trade_id):
     conn.close()
     return render_template('edit_trade.html', trade=trade)
 
-
 @app.route('/trade/<int:trade_id>/delete', methods=('POST', 'GET'))
 def delete_trade(trade_id):
+    user_id = g.user_email
     conn = get_db_connection()
-    conn.execute('DELETE FROM trades WHERE id = ?', (trade_id,))
+    conn.execute('DELETE FROM trades WHERE id = ? AND user_id = ?', (trade_id, user_id))
     conn.commit()
     conn.close()
     flash('Trade deleted successfully!')
@@ -146,8 +165,7 @@ def delete_trade(trade_id):
 
 @app.route('/trades')
 def trades():
-    user_id = 1  # TODO: Replace this with session-based user ID later
-
+    user_id = g.user_email
     conn = get_db_connection()
     trades = conn.execute('''
         SELECT trades.*, tickers.ticker, tickers.name
@@ -157,12 +175,11 @@ def trades():
         ORDER BY trades.trade_date DESC
     ''', (user_id,)).fetchall()
     conn.close()
-
     return render_template('trades.html', trades=trades)
-
 
 @app.route('/positions')
 def positions():
+    user_id = g.user_email
     conn = get_db_connection()
     positions = conn.execute('''
         SELECT 
@@ -172,14 +189,13 @@ def positions():
             NULLIF(SUM(CASE WHEN trades.action = 'BUY' THEN trades.quantity ELSE 0 END), 0) AS avg_price
         FROM trades
         JOIN tickers ON trades.ticker_id = tickers.id
+        WHERE trades.user_id = ?
         GROUP BY tickers.ticker
         HAVING net_quantity > 0
         ORDER BY tickers.ticker
-    ''').fetchall()
+    ''', (user_id,)).fetchall()
     conn.close()
-
     return render_template('positions.html', positions=positions)
-
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
@@ -220,27 +236,24 @@ def chart(ticker):
 
     return render_template('chart.html', ticker=ticker, ohlc=ohlc, vwma=vwma)
 
-
 @app.route('/performance')
 def performance():
+    user_id = g.user_email
     conn = get_db_connection()
     trades = conn.execute('''
         SELECT tickers.ticker, trades.*
         FROM trades
         JOIN tickers ON trades.ticker_id = tickers.id
+        WHERE trades.user_id = ?
         ORDER BY trades.trade_date ASC
-    ''').fetchall()
-
+    ''', (user_id,)).fetchall()
     conn.close()
-
     performance = {}
     for trade in trades:
         ticker = trade['ticker']
         if ticker not in performance:
             performance[ticker] = {'quantity': 0, 'cost': 0, 'realized_pnl': 0}
-
         pos = performance[ticker]
-
         if trade['action'] == 'BUY':
             pos['cost'] += trade['price'] * trade['quantity'] + trade['fees']
             pos['quantity'] += trade['quantity']
@@ -250,16 +263,12 @@ def performance():
             pos['realized_pnl'] += realized
             pos['cost'] -= avg_price * trade['quantity']
             pos['quantity'] -= trade['quantity']
-
     return render_template('performance.html', performance=performance)
-
 
 @app.route('/portfolio')
 def portfolio():
-    user_id = 1  # Replace with session-based user ID later
-
+    user_id = g.user_email
     conn = get_db_connection()
-
     portfolio = conn.execute('''
         WITH position_data AS (
             SELECT t.ticker_id, tickers.ticker, tickers.name,
@@ -288,43 +297,32 @@ def portfolio():
         JOIN latest_prices lp ON pd.ticker_id = lp.ticker_id
         ORDER BY pd.ticker
     ''', (user_id,)).fetchall()
-
-    # Debug: print portfolio data to console
-  #  print('PORTFOLIO DEBUG:', [dict(row) for row in portfolio])
-
-    # Calculate totals in Python
     total_value = sum(row['market_value'] for row in portfolio)
     total_pnl = sum(row['unrealized_pnl'] for row in portfolio)
-
     conn.close()
     return render_template('portfolio.html', portfolio=portfolio, total_value=total_value, total_pnl=total_pnl)
 
 @app.route('/cumulative_pnl')
 def cumulative_pnl():
+    user_id = g.user_email
     conn = get_db_connection()
-
     trades = conn.execute('''
         SELECT trades.*, tickers.ticker
         FROM trades
         JOIN tickers ON trades.ticker_id = tickers.id
+        WHERE trades.user_id = ?
         ORDER BY trades.trade_date ASC
-    ''').fetchall()
-
+    ''', (user_id,)).fetchall()
     conn.close()
-
     pnl_data = []
     position_tracker = {}
     cumulative_pnl = 0
-
     for trade in trades:
         ticker = trade['ticker']
         date = trade['trade_date']
-
         if ticker not in position_tracker:
             position_tracker[ticker] = {'quantity': 0, 'cost': 0}
-
         pos = position_tracker[ticker]
-
         if trade['action'] == 'BUY':
             pos['cost'] += trade['price'] * trade['quantity'] + trade['fees']
             pos['quantity'] += trade['quantity']
@@ -334,15 +332,13 @@ def cumulative_pnl():
             cumulative_pnl += realized_pnl
             pos['cost'] -= avg_price * trade['quantity']
             pos['quantity'] -= trade['quantity']
-
         pnl_data.append({'time': date, 'value': cumulative_pnl})
-
     return render_template('cumulative_pnl.html', pnl_data=pnl_data)
 
 @app.route('/notifications')
 def notifications():
+    user_id = g.user_email
     conn = get_db_connection()
-
     alerts = conn.execute('''
         SELECT a.id, s.ticker, a.indicator, a.operator, a.value, i.date, i.rsi, i.macd, i.macd_signal, p.close
         FROM alerts a
@@ -358,66 +354,60 @@ def notifications():
             FROM prices
             GROUP BY ticker_id
         ) p ON a.ticker_id = p.ticker_id
-    ''').fetchall()
-
+        WHERE a.user_id = ?
+    ''', (user_id,)).fetchall()
     conn.close()
-
     triggered = []
-
     for alert in alerts:
         if alert['indicator'] == 'RSI' and alert['operator'] == '<' and alert['rsi'] < alert['value']:
             triggered.append(alert)
         elif alert['indicator'] == 'RSI' and alert['operator'] == '>' and alert['rsi'] > alert['value']:
             triggered.append(alert)
         elif alert['indicator'] == 'MACD' and alert['operator'] == 'crosses':
-            if alert['macd'] > alert['macd_signal']:  # Simple bullish crossover detection
+            if alert['macd'] > alert['macd_signal']:
                 triggered.append(alert)
         elif alert['indicator'] == 'PRICE' and alert['operator'] == '<' and alert['close'] < alert['value']:
             triggered.append(alert)
         elif alert['indicator'] == 'PRICE' and alert['operator'] == '>' and alert['close'] > alert['value']:
             triggered.append(alert)
-
     return render_template('notifications.html', alerts=triggered)
-
 
 from datetime import datetime
 
 @app.route('/alerts', methods=['GET', 'POST'])
 def manage_alerts():
+    user_id = g.user_email
     conn = get_db_connection()
-
     if request.method == 'POST':
         ticker_id = request.form['ticker_id']
         indicator = request.form['indicator']
         operator = request.form['operator']
-        value = request.form.get('value')  # Optional for crossovers
-
+        value = request.form.get('value')
         conn.execute('''
-            INSERT INTO alerts (ticker_id, indicator, operator, value, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (ticker_id, indicator, operator, value, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+            INSERT INTO alerts (user_id, ticker_id, indicator, operator, value, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (user_id, ticker_id, indicator, operator, value, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         conn.commit()
         return redirect(url_for('manage_alerts'))
-
     tickers = conn.execute('SELECT * FROM tickers ORDER BY ticker').fetchall()
     alerts = conn.execute('''
         SELECT alerts.*, tickers.ticker
         FROM alerts
         JOIN tickers ON alerts.ticker_id = tickers.id
+        WHERE alerts.user_id = ?
         ORDER BY created_at DESC
-    ''').fetchall()
+    ''', (user_id,)).fetchall()
     conn.close()
-
     return render_template('alerts.html', alerts=alerts, tickers=tickers)
 
 @app.route('/delete_alert/<int:alert_id>')
 def delete_alert(alert_id):
+    user_id = g.user_email
     conn = get_db_connection()
-    conn.execute('DELETE FROM alerts WHERE id = ?', (alert_id,))
+    conn.execute('DELETE FROM alerts WHERE id = ? AND user_id = ?', (alert_id, user_id))
     conn.commit()
     conn.close()
     return redirect(url_for('manage_alerts'))
-
 
 @app.route('/tickers')
 def tickers():
@@ -425,7 +415,6 @@ def tickers():
     tickers = conn.execute('SELECT * FROM tickers ORDER BY ticker').fetchall()
     conn.close()
     return render_template('tickers.html', tickers=tickers)
-
 
 @app.route('/tickers/edit/<int:ticker_id>', methods=['GET', 'POST'])
 def edit_ticker(ticker_id):
@@ -453,10 +442,8 @@ def edit_ticker(ticker_id):
 
 @app.route('/charts')
 def charts():
-    user_id = 1  # TODO: Replace with session-based user ID later
+    user_id = g.user_email
     conn = get_db_connection()
-
-    # Build performance time series
     performance_data = conn.execute('''
         WITH daily_positions AS (
             SELECT p.date, t.ticker, SUM(
@@ -478,8 +465,6 @@ def charts():
         GROUP BY p.date
         ORDER BY p.date
     ''', (user_id,)).fetchall()
-
-    # Portfolio weights for pie chart
     weights_data = conn.execute('''
         WITH position_data AS (
             SELECT t.ticker_id, tickers.ticker, SUM(
@@ -503,18 +488,12 @@ def charts():
         JOIN prices p ON pd.ticker_id = p.ticker_id
         JOIN latest_prices lp ON p.ticker_id = lp.ticker_id AND p.date = lp.latest_date
     ''', (user_id,)).fetchall()
-
     conn.close()
-
-    # Prepare data for charts
     dates = [row['date'] for row in performance_data]
     portfolio_values = [row['portfolio_value'] for row in performance_data]
-
     labels = [row['ticker'] for row in weights_data]
     weights = [row['market_value'] for row in weights_data]
-
     return render_template('charts.html', dates=dates, portfolio_values=portfolio_values, labels=labels, weights=weights)
-
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0')

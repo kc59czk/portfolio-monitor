@@ -46,7 +46,7 @@
         <label for="ticker" class="form-label">Ticker</label>
         <select class="form-select" name="ticker" id="ticker">
             <option value="">All</option>
-            {% for stock in stocks %}
+            {% for stock in tickers %}
             <option value="{{ stock['ticker'] }}">{{ stock['ticker'] }}</option>
             {% endfor %}
         </select>
