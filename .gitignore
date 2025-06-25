@@ -197,3 +197,5 @@ bin/
 *.db-BACKUP*.db
 .git/
 .github/
+prices1.sql
+trades.db-BACKUP
