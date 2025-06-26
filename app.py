@@ -1,10 +1,20 @@
-from flask import Flask, render_template, request, redirect, url_for, flash,g, session
+from flask import Flask, render_template,request, redirect, url_for, flash,g, session
+
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file if it exists
+
+import os   
 import sqlite3
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key1'  # Needed for flash messages
 
-DATABASE = 'trades.db'
+app.config['SECRET_KEY']=os.getenv('SECRET_KEY', 'your_default_secret_key')  # Use environment variable or default value
+
+app.secret_key = app.config['SECRET_KEY']  # Needed for flash messages
+
+
+DATABASE=os.getenv('DB_PATH')  # Use environment variable or default value
+print (f"Using database at: {DATABASE}")
 
 @app.before_request
 def load_current_user():
@@ -496,4 +506,4 @@ def charts():
     return render_template('charts.html', dates=dates, portfolio_values=portfolio_values, labels=labels, weights=weights)
 
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0')
+    app.run(debug=True,host='0.0.0.0',port=int(os.getenv('PORT',5000)))  # Use environment variable or default to 5000
