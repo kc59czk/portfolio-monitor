@@ -22,7 +22,7 @@
         <tbody>
             {% for trade in trades %}
             <tr>
-                <td>{{ trade['date'] }}</td>
+                <td>{{ trade['trade_date'] }}</td>
                 <td>{{ trade['ticker'] }}</td>
                 <td>{{ trade['name'] }}</td>
                 <td class="{% if trade['action'] == 'BUY' %}text-success{% else %}text-danger{% endif %}">
