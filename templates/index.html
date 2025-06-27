@@ -23,7 +23,7 @@
             {% for trade in trades %}
             <tr>
                 <td>{{ trade['trade_date'] }}</td>
-                <td>{{ trade['ticker'] }}</td>
+                <td><a href="{{ url_for('chart', ticker=trade['ticker']) }}">{{ trade['ticker'] }}</a></td>
                 <td>{{ trade['action'] }}</td>
                 <td>{{ trade['quantity'] }}</td>
                 <td>{{ trade['price'] }}</td>

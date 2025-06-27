@@ -12,7 +12,9 @@ This is a simple Flask-based trading app. It allows you to enter trades and stor
 1. Ensure you have Python 3.7+ and Flask installed.
 2. Run the app:
    ```zsh
-   /home/czara/devel/portfel2/.venv/bin/python app.py
+   cd to you venv folder, and activate it
+   . .venv/bin/activate
+   python app.py
    ```
 3. Open your browser at http://127.0.0.1:5000/
 
