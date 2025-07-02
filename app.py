@@ -384,40 +384,72 @@ def notifications():
 
 from datetime import datetime
 
-@app.route('/alerts', methods=['GET', 'POST'])
-def manage_alerts():
+from flask import g
+
+@app.route('/alerts')
+def alerts():
     user_id = g.user_email
     conn = get_db_connection()
-    if request.method == 'POST':
-        ticker_id = request.form['ticker_id']
-        indicator = request.form['indicator']
-        operator = request.form['operator']
-        value = request.form.get('value')
-        conn.execute('''
-            INSERT INTO alerts (user_id, ticker_id, indicator, operator, value, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (user_id, ticker_id, indicator, operator, value, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        conn.commit()
-        return redirect(url_for('manage_alerts'))
-    tickers = conn.execute('SELECT * FROM tickers ORDER BY ticker').fetchall()
     alerts = conn.execute('''
-        SELECT alerts.*, tickers.ticker
-        FROM alerts
-        JOIN tickers ON alerts.ticker_id = tickers.id
-        WHERE alerts.user_id = ?
-        ORDER BY created_at DESC
+        SELECT a.*, t.ticker
+        FROM alerts a
+        JOIN tickers t ON t.id = a.ticker_id
+        WHERE a.user_id = ?
+        ORDER BY a.id DESC
     ''', (user_id,)).fetchall()
     conn.close()
-    return render_template('alerts.html', alerts=alerts, tickers=tickers)
+    return render_template('alerts.html', alerts=alerts)
 
-@app.route('/delete_alert/<int:alert_id>')
+@app.route('/alerts/new', methods=['GET', 'POST'])
+def new_alert():
+    user_id = g.user_email
+    conn = get_db_connection()
+    tickers = conn.execute('SELECT id, ticker FROM tickers WHERE is_active = 1 ORDER BY ticker').fetchall()
+
+    if request.method == 'POST':
+        name = request.form['name']
+        condition = request.form['condition']
+        ticker_id = request.form['ticker_id']
+        conn.execute('''
+            INSERT INTO alerts (user_id, ticker_id, name, condition) VALUES (?, ?, ?, ?)
+        ''', (user_id, ticker_id, name, condition))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('alerts'))
+
+    conn.close()
+    return render_template('alert_form.html', tickers=tickers, alert=None)
+
+@app.route('/alerts/<int:alert_id>/edit', methods=['GET', 'POST'])
+def edit_alert(alert_id):
+    user_id = g.user_email
+    conn = get_db_connection()
+    alert = conn.execute('SELECT * FROM alerts WHERE id = ? AND user_id = ?', (alert_id, user_id)).fetchone()
+    tickers = conn.execute('SELECT id, ticker FROM tickers WHERE is_active = 1 ORDER BY ticker').fetchall()
+
+    if request.method == 'POST':
+        name = request.form['name']
+        condition = request.form['condition']
+        ticker_id = request.form['ticker_id']
+        is_active = 1 if request.form.get('is_active') == 'on' else 0
+        conn.execute('''
+            UPDATE alerts SET name = ?, condition = ?, ticker_id = ?, is_active = ? WHERE id = ? AND user_id = ?
+        ''', (name, condition, ticker_id, is_active, alert_id, user_id))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('alerts'))
+
+    conn.close()
+    return render_template('alert_form.html', alert=alert, tickers=tickers)
+
+@app.route('/alerts/<int:alert_id>/delete')
 def delete_alert(alert_id):
     user_id = g.user_email
     conn = get_db_connection()
     conn.execute('DELETE FROM alerts WHERE id = ? AND user_id = ?', (alert_id, user_id))
     conn.commit()
     conn.close()
-    return redirect(url_for('manage_alerts'))
+    return redirect(url_for('alerts'))
 
 @app.route('/tickers')
 def tickers():

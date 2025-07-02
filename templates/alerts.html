@@ -1,72 +1,29 @@
-{% extends "base.html" %}
-
-{% block title %}Manage Alerts{% endblock %}
-
+{% extends 'base.html' %}
 {% block content %}
-<h1 class="mb-4">Manage Strategy Alerts</h1>
-
-<form method="post" class="row g-3 mb-4">
-    <div class="col-md-3">
-        <label for="stock_id" class="form-label">Stock</label>
-        <select name="stock_id" class="form-select" required>
-            {% for stock in stocks %}
-            <option value="{{ stock['id'] }}">{{ stock['ticker'] }}</option>
+<div class="container mt-4">
+    <h2>My Alerts</h2>
+    <a href="{{ url_for('new_alert') }}" class="btn btn-success mb-3">+ Add Alert</a>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>Name</th><th>Ticker</th><th>Condition</th><th>Active</th><th>Last Triggered</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in alerts %}
+            <tr>
+                <td>{{ alert['name'] }}</td>
+                <td>{{ alert['ticker'] }}</td>
+                <td><code>{{ alert['condition'] }}</code></td>
+                <td>{{ 'Yes' if alert['is_active'] else 'No' }}</td>
+                <td>{{ alert['last_triggered'] or '-' }}</td>
+                <td>
+                    <a href="{{ url_for('edit_alert', alert_id=alert['id']) }}" class="btn btn-primary btn-sm">Edit</a>
+                    <a href="{{ url_for('delete_alert', alert_id=alert['id']) }}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?');">Delete</a>
+                </td>
+            </tr>
             {% endfor %}
-        </select>
-    </div>
-
-    <div class="col-md-3">
-        <label for="indicator" class="form-label">Indicator</label>
-        <select name="indicator" class="form-select" required>
-            <option value="RSI">RSI</option>
-            <option value="MACD">MACD</option>
-            <option value="PRICE">Price</option>
-        </select>
-    </div>
-
-    <div class="col-md-3">
-        <label for="operator" class="form-label">Operator</label>
-        <select name="operator" class="form-select" required>
-            <option value="<">Less Than</option>
-            <option value=">">Greater Than</option>
-            <option value="crosses">Crosses (for MACD)</option>
-        </select>
-    </div>
-
-    <div class="col-md-3">
-        <label for="value" class="form-label">Value (optional for crosses)</label>
-        <input type="number" step="0.01" name="value" class="form-control">
-    </div>
-
-    <div class="col-12">
-        <button type="submit" class="btn btn-primary">Add Alert</button>
-    </div>
-</form>
-
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Stock</th>
-            <th>Indicator</th>
-            <th>Operator</th>
-            <th>Value</th>
-            <th>Created At</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for alert in alerts %}
-        <tr>
-            <td>{{ alert['ticker'] }}</td>
-            <td>{{ alert['indicator'] }}</td>
-            <td>{{ alert['operator'] }}</td>
-            <td>{{ alert['value'] if alert['value'] else 'N/A' }}</td>
-            <td>{{ alert['created_at'] }}</td>
-            <td>
-                <a href="{{ url_for('delete_alert', alert_id=alert['id']) }}" class="btn btn-danger btn-sm">Delete</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        </tbody>
+    </table>
+</div>
 {% endblock %}
