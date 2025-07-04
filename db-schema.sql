@@ -22,6 +22,7 @@ CREATE TABLE prices (
     low REAL,
     close REAL,
     volume REAL,
+    volume_avg_20 REAL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (ticker_id, date),
     FOREIGN KEY (ticker_id) REFERENCES tickers (id)

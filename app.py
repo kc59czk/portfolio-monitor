@@ -225,9 +225,10 @@ def chart(ticker):
 
     ticker_id = stock['id']
 
-    # Get OHLC and indicators
+    # Get OHLC, indicators, and volume
     data = conn.execute('''
-        SELECT prices.date, prices.open, prices.high, prices.low, prices.close, indicators.rsi, indicators.vwma, indicators.macd, indicators.macd_signal
+        SELECT prices.date, prices.open, prices.high, prices.low, prices.close, prices.volume,
+               indicators.rsi, indicators.vwma, indicators.macd, indicators.macd_signal
         FROM prices
         LEFT JOIN indicators ON prices.ticker_id = indicators.ticker_id AND prices.date = indicators.date
         WHERE prices.ticker_id = ?
@@ -239,12 +240,15 @@ def chart(ticker):
     # Prepare JSON for chart
     ohlc = []
     vwma = []
+    volume = []
     for row in data:
         ohlc.append({'time': row['date'], 'open': row['open'], 'high': row['high'], 'low': row['low'], 'close': row['close']})
         if row['vwma']:
             vwma.append({'time': row['date'], 'value': row['vwma']})
+        if row['volume'] is not None:
+            volume.append({'time': row['date'], 'value': row['volume']})
 
-    return render_template('chart.html', ticker=ticker, ohlc=ohlc, vwma=vwma)
+    return render_template('chart.html', ticker=ticker, ohlc=ohlc, vwma=vwma, volume=volume)
 
 @app.route('/performance')
 def performance():

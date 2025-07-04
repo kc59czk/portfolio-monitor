@@ -13,15 +13,16 @@
 </div>
 <script src="{{ url_for('static', filename='lightweight-charts.standalone.production.js') }}"></script>
 <script>
-    // Prepare data from Flask context
     var ohlc = {{ ohlc|tojson|safe }};
     var vwma = {{ vwma|tojson|safe }};
+    var volume = {{ volume|tojson|safe }};
 
     const chart = LightweightCharts.createChart(document.getElementById('chart'), {
         width: 800,
         height: 400,
         layout: { background: { color: '#f8f9fa' }, textColor: '#222' },
-        grid: { vertLines: { color: '#eee' }, horzLines: { color: '#eee' } }
+        grid: { vertLines: { color: '#eee' }, horzLines: { color: '#eee' } },
+        rightPriceScale: { scaleMargins: { top: 0.2, bottom: 0.3 } }
     });
 
     const candleSeries = chart.addCandlestickSeries();
@@ -37,6 +38,19 @@
         const vwmaSeries = chart.addLineSeries({ color: 'blue', lineWidth: 2 });
         vwmaSeries.setData(vwma);
     }
+
+    // Add volume histogram
+    const volumeSeries = chart.addHistogramSeries({
+        color: '#888',
+        priceFormat: { type: 'volume' },
+        priceScaleId: '', // set to '' to create a separate scale
+        scaleMargins: { top: 0.7, bottom: 0 }
+    });
+    volumeSeries.setData(volume.map(row => ({
+        time: row.time,
+        value: row.value,
+        color: row.value > 0 ? '#26a69a' : '#ef5350'
+    })));
 </script>
 </body>
 </html>
